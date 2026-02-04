@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Test Editor Monitor API</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #1a1a2e;
+      color: #fff;
+      padding: 40px;
+      min-height: 100vh;
+    }
+    .container { max-width: 900px; margin: 0 auto; }
+    h1 { margin-bottom: 10px; color: #00d4ff; }
+    .subtitle { color: #888; margin-bottom: 30px; }
+
+    .config-box {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 30px;
+    }
+    .config-box label { display: block; margin-bottom: 8px; color: #888; }
+    .config-box input {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 6px;
+      background: rgba(0,0,0,0.3);
+      color: #fff;
+      font-size: 14px;
+    }
+
+    .test-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+
+    .test-card {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 12px;
+      padding: 20px;
+    }
+    .test-card h3 { margin-bottom: 15px; display: flex; align-items: center; gap: 10px; }
+    .test-card p { color: #888; font-size: 14px; margin-bottom: 15px; }
+
+    .badge {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .badge-clean { background: rgba(0,255,136,0.2); color: #00ff88; }
+    .badge-flagged { background: rgba(255,68,68,0.2); color: #ff4444; }
+
+    button {
+      width: 100%;
+      padding: 12px;
+      border: none;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+    .btn-test { background: #00d4ff; color: #000; }
+    .btn-test:hover { background: #00b8e6; }
+    .btn-test:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .result {
+      margin-top: 15px;
+      padding: 15px;
+      border-radius: 6px;
+      font-size: 13px;
+      display: none;
+    }
+    .result.show { display: block; }
+    .result.success { background: rgba(0,255,136,0.1); border: 1px solid rgba(0,255,136,0.3); }
+    .result.error { background: rgba(255,68,68,0.1); border: 1px solid rgba(255,68,68,0.3); }
+    .result.flagged { background: rgba(255,170,0,0.1); border: 1px solid rgba(255,170,0,0.3); }
+    .result pre { white-space: pre-wrap; word-break: break-all; }
+
+    .test-keys {
+      background: rgba(0,0,0,0.3);
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 30px;
+    }
+    .test-keys h3 { margin-bottom: 15px; }
+    .key-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+    .key-row:last-child { border-bottom: none; }
+    .key-row code {
+      background: rgba(0,212,255,0.1);
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+    }
+    .copy-btn {
+      background: rgba(255,255,255,0.1);
+      border: none;
+      color: #888;
+      padding: 4px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+    }
+    .copy-btn:hover { background: rgba(255,255,255,0.2); color: #fff; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Editor Monitor - Test Suite</h1>
+    <p class="subtitle">Test the API before deploying to editors</p>
+
+    <div class="config-box">
+      <label>API Base URL (your Vercel deployment)</label>
+      <input type="text" id="apiUrl" placeholder="https://your-app.vercel.app" value="">
+      <p style="color: #666; font-size: 12px; margin-top: 8px;">Leave empty to test against localhost:3000</p>
+    </div>
+
+    <div class="test-keys">
+      <h3>Test API Keys</h3>
+      <div class="key-row">
+        <span>Test Aurapets (should accept dog content, flag human content)</span>
+        <code id="keyAurapets">test_aurapets_admin_x9k2m5n8p3q7</code>
+        <button class="copy-btn" onclick="copyKey('keyAurapets')">Copy</button>
+      </div>
+      <div class="key-row">
+        <span>Test LuminEye (should accept human eye content, flag dog content)</span>
+        <code id="keyLumineye">test_lumineye_admin_y4l7o0r3s6t9</code>
+        <button class="copy-btn" onclick="copyKey('keyLumineye')">Copy</button>
+      </div>
+    </div>
+
+    <div class="test-grid">
+      <!-- Test 1: Aurapets On-Brand -->
+      <div class="test-card">
+        <h3>Test 1 <span class="badge badge-clean">Should Pass</span></h3>
+        <p><strong>Aurapets key</strong> + Dog eye health content</p>
+        <button class="btn-test" onclick="runTest(1)">Run Test</button>
+        <div class="result" id="result1"></div>
+      </div>
+
+      <!-- Test 2: Aurapets Off-Brand -->
+      <div class="test-card">
+        <h3>Test 2 <span class="badge badge-flagged">Should Flag</span></h3>
+        <p><strong>Aurapets key</strong> + Human weight loss content</p>
+        <button class="btn-test" onclick="runTest(2)">Run Test</button>
+        <div class="result" id="result2"></div>
+      </div>
+
+      <!-- Test 3: LuminEye On-Brand -->
+      <div class="test-card">
+        <h3>Test 3 <span class="badge badge-clean">Should Pass</span></h3>
+        <p><strong>LuminEye key</strong> + Human eye health content</p>
+        <button class="btn-test" onclick="runTest(3)">Run Test</button>
+        <div class="result" id="result3"></div>
+      </div>
+
+      <!-- Test 4: LuminEye Off-Brand -->
+      <div class="test-card">
+        <h3>Test 4 <span class="badge badge-flagged">Should Flag</span></h3>
+        <p><strong>LuminEye key</strong> + Crypto trading content</p>
+        <button class="btn-test" onclick="runTest(4)">Run Test</button>
+        <div class="result" id="result4"></div>
+      </div>
+
+      <!-- Test 5: Cross-brand -->
+      <div class="test-card">
+        <h3>Test 5 <span class="badge badge-flagged">Should Flag</span></h3>
+        <p><strong>Aurapets key</strong> + Human eye health (LuminEye content)</p>
+        <button class="btn-test" onclick="runTest(5)">Run Test</button>
+        <div class="result" id="result5"></div>
+      </div>
+
+      <!-- Test 6: Invalid Key -->
+      <div class="test-card">
+        <h3>Test 6 <span class="badge badge-flagged">Should Reject</span></h3>
+        <p><strong>Invalid API key</strong> - should return 401</p>
+        <button class="btn-test" onclick="runTest(6)">Run Test</button>
+        <div class="result" id="result6"></div>
+      </div>
+    </div>
+
+    <div style="margin-top: 30px; text-align: center;">
+      <button class="btn-test" style="max-width: 300px;" onclick="runAllTests()">Run All Tests</button>
+    </div>
+  </div>
+
+  <script>
+    const testCases = {
+      1: {
+        apiKey: 'test_aurapets_admin_x9k2m5n8p3q7',
+        tool: 'elevenlabs',
+        prompt: 'My dog had cloudy eyes for years. I tried AuraPets Nano Drops and within weeks, his vision improved. The cellular debris started clearing and now he can catch treats mid-air again!',
+        expectedFlag: false
+      },
+      2: {
+        apiKey: 'test_aurapets_admin_x9k2m5n8p3q7',
+        tool: 'veo3',
+        prompt: 'Lose 30 pounds in 30 days with our revolutionary weight loss supplement! Clinical trials show 95% of users lost weight. Order now and get free shipping on your keto diet pills!',
+        expectedFlag: true
+      },
+      3: {
+        apiKey: 'test_lumineye_admin_y4l7o0r3s6t9',
+        tool: 'makeugc',
+        prompt: 'I was struggling with floaters and blurry vision for years. My doctor said it was just aging. Then I found LuminEye drops. Within months, my vision clarity improved dramatically. I can read without glasses now!',
+        expectedFlag: false
+      },
+      4: {
+        apiKey: 'test_lumineye_admin_y4l7o0r3s6t9',
+        tool: 'elevenlabs',
+        prompt: 'Make $10,000 per day trading Bitcoin! Our AI crypto bot has 99% accuracy. Join thousands of millionaires who started with just $250. Limited spots available!',
+        expectedFlag: true
+      },
+      5: {
+        apiKey: 'test_aurapets_admin_x9k2m5n8p3q7',
+        tool: 'higgsfield',
+        prompt: 'Are you over 50 and struggling with floaters? LuminEye helps thousands of people restore their vision clarity. Our stem cell activating formula goes directly under your tongue for 98% absorption.',
+        expectedFlag: true
+      },
+      6: {
+        apiKey: 'invalid_fake_key_12345',
+        tool: 'veo3',
+        prompt: 'Test content',
+        expectedFlag: null // Should return 401
+      }
+    };
+
+    function getApiUrl() {
+      const input = document.getElementById('apiUrl').value.trim();
+      return input || 'http://localhost:3000';
+    }
+
+    async function runTest(testNum) {
+      const test = testCases[testNum];
+      const resultDiv = document.getElementById(`result${testNum}`);
+      const btn = event.target;
+
+      btn.disabled = true;
+      btn.textContent = 'Testing...';
+      resultDiv.className = 'result';
+      resultDiv.style.display = 'none';
+
+      try {
+        const response = await fetch(`${getApiUrl()}/api/generate`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-API-Key': test.apiKey
+          },
+          body: JSON.stringify({
+            tool: test.tool,
+            prompt: test.prompt
+          })
+        });
+
+        const data = await response.json();
+
+        let passed = false;
+        let resultClass = 'error';
+
+        if (testNum === 6) {
+          // Test 6 expects 401
+          passed = response.status === 401;
+          resultClass = passed ? 'success' : 'error';
+        } else {
+          passed = data.flagged === test.expectedFlag;
+          resultClass = passed ? 'success' : (data.flagged ? 'flagged' : 'error');
+        }
+
+        resultDiv.innerHTML = `
+          <strong>${passed ? '✅ PASSED' : '❌ FAILED'}</strong><br><br>
+          <pre>${JSON.stringify(data, null, 2)}</pre>
+        `;
+        resultDiv.className = `result show ${resultClass}`;
+
+      } catch (error) {
+        resultDiv.innerHTML = `<strong>❌ Error:</strong> ${error.message}<br><br>Make sure your API is running.`;
+        resultDiv.className = 'result show error';
+      }
+
+      btn.disabled = false;
+      btn.textContent = 'Run Test';
+    }
+
+    async function runAllTests() {
+      for (let i = 1; i <= 6; i++) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+        const btn = document.querySelector(`.test-card:nth-child(${i}) .btn-test`);
+        btn.click();
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      }
+    }
+
+    function copyKey(elementId) {
+      const key = document.getElementById(elementId).textContent;
+      navigator.clipboard.writeText(key);
+      alert('Copied!');
+    }
+  </script>
+</body>
+</html>
