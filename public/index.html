@@ -1,720 +1,127 @@
+const { Resend } = require('resend');
+
+const resend = new Resend(process.env.RESEND_API_KEY);
+
+async function sendAlertEmail({ editor, brand, tool, prompt, detectedTopic, reason, timestamp }) {
+  const adminEmail = process.env.ADMIN_EMAIL || 'narjes@w16media.co';
+
+  const emailHtml = `
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>W16 Media - Script Approval Portal</title>
   <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-      min-height: 100vh;
-      color: #fff;
-    }
-
-    .container {
-      max-width: 700px;
-      margin: 0 auto;
-      padding: 40px 20px;
-    }
-
-    .header {
-      text-align: center;
-      margin-bottom: 40px;
-    }
-
-    .logo {
-      font-size: 2.5rem;
-      font-weight: 700;
-      margin-bottom: 10px;
-      background: linear-gradient(90deg, #00d4ff, #7b2cbf);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-    }
-
-    .subtitle {
-      color: #888;
-      font-size: 1rem;
-    }
-
-    .card {
-      background: rgba(255, 255, 255, 0.05);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      border-radius: 16px;
-      padding: 30px;
-      margin-bottom: 20px;
-      backdrop-filter: blur(10px);
-    }
-
-    .step-indicator {
-      display: flex;
-      justify-content: space-between;
-      margin-bottom: 30px;
-      position: relative;
-    }
-
-    .step-indicator::before {
-      content: '';
-      position: absolute;
-      top: 15px;
-      left: 50px;
-      right: 50px;
-      height: 2px;
-      background: rgba(255,255,255,0.1);
-    }
-
-    .step {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 8px;
-      z-index: 1;
-    }
-
-    .step-number {
-      width: 32px;
-      height: 32px;
-      border-radius: 50%;
-      background: rgba(255,255,255,0.1);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: 600;
-      font-size: 14px;
-    }
-
-    .step.active .step-number {
-      background: #00d4ff;
-      color: #000;
-    }
-
-    .step.completed .step-number {
-      background: #00ff88;
-      color: #000;
-    }
-
-    .step-label {
-      font-size: 12px;
-      color: #666;
-    }
-
-    .step.active .step-label,
-    .step.completed .step-label {
-      color: #fff;
-    }
-
-    .form-group {
-      margin-bottom: 24px;
-    }
-
-    label {
-      display: block;
-      margin-bottom: 8px;
-      color: #ccc;
-      font-weight: 500;
-      font-size: 14px;
-    }
-
-    .label-hint {
-      color: #666;
-      font-weight: 400;
-      font-size: 12px;
-      margin-left: 8px;
-    }
-
-    input, select, textarea {
-      width: 100%;
-      padding: 14px 16px;
-      border: 1px solid rgba(255, 255, 255, 0.2);
-      border-radius: 10px;
-      background: rgba(255, 255, 255, 0.05);
-      color: #fff;
-      font-size: 15px;
-      transition: all 0.3s ease;
-    }
-
-    input:focus, select:focus, textarea:focus {
-      outline: none;
-      border-color: #00d4ff;
-      box-shadow: 0 0 0 3px rgba(0, 212, 255, 0.1);
-    }
-
-    input::placeholder, textarea::placeholder {
-      color: #555;
-    }
-
-    select {
-      cursor: pointer;
-      appearance: none;
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%23888' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10l-5 5z'/%3E%3C/svg%3E");
-      background-repeat: no-repeat;
-      background-position: right 16px center;
-    }
-
-    select option {
-      background: #1a1a2e;
-      color: #fff;
-    }
-
-    textarea {
-      min-height: 180px;
-      resize: vertical;
-      font-family: inherit;
-      line-height: 1.6;
-    }
-
-    .btn {
-      width: 100%;
-      padding: 16px;
-      border: none;
-      border-radius: 10px;
-      font-size: 16px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.3s ease;
-    }
-
-    .btn-primary {
-      background: linear-gradient(90deg, #00d4ff, #7b2cbf);
-      color: #fff;
-    }
-
-    .btn-primary:hover:not(:disabled) {
-      transform: translateY(-2px);
-      box-shadow: 0 10px 30px rgba(0, 212, 255, 0.3);
-    }
-
-    .btn-primary:disabled {
-      opacity: 0.4;
-      cursor: not-allowed;
-      transform: none;
-    }
-
-    .status-bar {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 12px 16px;
-      background: rgba(0, 0, 0, 0.2);
-      border-radius: 8px;
-      margin-bottom: 24px;
-    }
-
-    .status-dot {
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-      background: #ff4444;
-    }
-
-    .status-dot.connected {
-      background: #00ff88;
-      box-shadow: 0 0 10px #00ff88;
-    }
-
-    .status-text {
-      flex: 1;
-      font-size: 14px;
-      color: #888;
-    }
-
-    .status-text.connected {
-      color: #00ff88;
-    }
-
-    .brand-badge {
-      padding: 4px 12px;
-      border-radius: 20px;
-      font-size: 12px;
-      font-weight: 600;
-      background: rgba(0, 212, 255, 0.2);
-      color: #00d4ff;
-    }
-
-    /* Result Screens */
-    .result-screen {
-      display: none;
-      text-align: center;
-      padding: 40px 20px;
-    }
-
-    .result-screen.show {
-      display: block;
-    }
-
-    .result-icon {
-      font-size: 80px;
-      margin-bottom: 20px;
-    }
-
-    .result-title {
-      font-size: 24px;
-      font-weight: 700;
-      margin-bottom: 12px;
-    }
-
-    .result-message {
-      color: #888;
-      font-size: 16px;
-      line-height: 1.6;
-      margin-bottom: 30px;
-    }
-
-    .result-screen.approved .result-title {
-      color: #00ff88;
-    }
-
-    .result-screen.flagged .result-title {
-      color: #ff4444;
-    }
-
-    .result-details {
-      background: rgba(0, 0, 0, 0.2);
-      border-radius: 10px;
-      padding: 20px;
-      text-align: left;
-      margin-bottom: 24px;
-    }
-
-    .result-details .row {
-      display: flex;
-      justify-content: space-between;
-      padding: 8px 0;
-      border-bottom: 1px solid rgba(255,255,255,0.05);
-    }
-
-    .result-details .row:last-child {
-      border-bottom: none;
-    }
-
-    .result-details .label {
-      color: #666;
-      margin-bottom: 0;
-    }
-
-    .result-details .value {
-      color: #fff;
-      font-weight: 500;
-    }
-
-    .btn-secondary {
-      background: rgba(255, 255, 255, 0.1);
-      color: #fff;
-      border: 1px solid rgba(255, 255, 255, 0.2);
-    }
-
-    .btn-secondary:hover {
-      background: rgba(255, 255, 255, 0.2);
-    }
-
-    .tool-instructions {
-      background: rgba(0, 212, 255, 0.1);
-      border: 1px solid rgba(0, 212, 255, 0.3);
-      border-radius: 10px;
-      padding: 20px;
-      margin-bottom: 24px;
-    }
-
-    .tool-instructions h4 {
-      color: #00d4ff;
-      margin-bottom: 12px;
-      font-size: 14px;
-    }
-
-    .tool-instructions ol {
-      color: #ccc;
-      font-size: 14px;
-      padding-left: 20px;
-      line-height: 1.8;
-    }
-
-    .footer {
-      text-align: center;
-      margin-top: 30px;
-      color: #444;
-      font-size: 13px;
-    }
-
-    .footer a {
-      color: #00d4ff;
-      text-decoration: none;
-    }
-
-    .hidden {
-      display: none !important;
-    }
-
-    @media (max-width: 600px) {
-      .logo {
-        font-size: 1.8rem;
-      }
-      .step-label {
-        display: none;
-      }
-    }
+    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+    .header { background: #dc3545; color: white; padding: 20px; border-radius: 8px 8px 0 0; }
+    .content { background: #f8f9fa; padding: 20px; border: 1px solid #dee2e6; }
+    .script-box { background: #fff; border: 1px solid #dc3545; padding: 15px; margin: 15px 0; border-radius: 4px; white-space: pre-wrap; font-family: monospace; font-size: 13px; max-height: 400px; overflow-y: auto; }
+    .info-row { margin: 10px 0; }
+    .label { font-weight: bold; color: #666; }
+    .value { color: #333; }
+    .warning { background: #fff3cd; border: 1px solid #ffc107; padding: 10px; border-radius: 4px; margin: 15px 0; }
+    .footer { padding: 15px; text-align: center; color: #666; font-size: 12px; }
   </style>
 </head>
 <body>
   <div class="container">
     <div class="header">
-      <div class="logo">W16 Script Portal</div>
-      <p class="subtitle">Submit your scripts for approval before using AI tools</p>
+      <h2 style="margin:0;">🚨 OFF-BRAND CONTENT DETECTED</h2>
     </div>
-
-    <!-- Main Form Card -->
-    <div class="card" id="formCard">
-      <div class="step-indicator">
-        <div class="step active" id="step1">
-          <div class="step-number">1</div>
-          <div class="step-label">Login</div>
-        </div>
-        <div class="step" id="step2">
-          <div class="step-number">2</div>
-          <div class="step-label">Select Tool</div>
-        </div>
-        <div class="step" id="step3">
-          <div class="step-number">3</div>
-          <div class="step-label">Submit Script</div>
-        </div>
+    <div class="content">
+      <div class="info-row">
+        <span class="label">Editor:</span>
+        <span class="value" style="color: #dc3545; font-weight: bold;">${editor.name}</span>
+      </div>
+      <div class="info-row">
+        <span class="label">Assigned Brand:</span>
+        <span class="value">${brand.name} (${brand.website})</span>
+      </div>
+      <div class="info-row">
+        <span class="label">Tool Used:</span>
+        <span class="value">${tool}</span>
+      </div>
+      <div class="info-row">
+        <span class="label">Time:</span>
+        <span class="value">${new Date(timestamp).toLocaleString()}</span>
       </div>
 
-      <div class="status-bar">
-        <div class="status-dot" id="statusDot"></div>
-        <div class="status-text" id="statusText">Enter your API key to continue</div>
-        <div class="brand-badge hidden" id="brandBadge"></div>
+      <div class="warning">
+        <strong>⚠️ Content Analysis:</strong><br>
+        <strong>Detected Topic:</strong> ${detectedTopic}<br>
+        <strong>Expected:</strong> ${brand.description}<br>
+        <strong>Reason:</strong> ${reason}
       </div>
 
-      <form id="scriptForm">
-        <div class="form-group">
-          <label for="apiKey">Your API Key <span class="label-hint">(provided by admin)</span></label>
-          <input type="password" id="apiKey" placeholder="e.g., ap_james_7f3k9m2x..." autocomplete="off" />
-        </div>
-
-        <div class="form-group">
-          <label for="tool">Select AI Tool</label>
-          <select id="tool" disabled>
-            <option value="">-- Select a tool --</option>
-            <option value="veo3">🎬 Veo 3 (Video Generation)</option>
-            <option value="makeugc">👤 MakeUGC (UGC Content)</option>
-            <option value="elevenlabs">🎙️ ElevenLabs (Voice)</option>
-            <option value="higgsfield">✨ Higgsfield (AI Video)</option>
-          </select>
-        </div>
-
-        <div class="form-group">
-          <label for="prompt">Your Script / Prompt</label>
-          <textarea id="prompt" placeholder="Paste your full script here..." disabled></textarea>
-        </div>
-
-        <button type="submit" class="btn btn-primary" id="submitBtn" disabled>
-          Submit for Approval
-        </button>
-      </form>
-    </div>
-
-    <!-- Approved Result Screen -->
-    <div class="card result-screen approved" id="approvedScreen">
-      <div class="result-icon">✅</div>
-      <div class="result-title">Script Approved</div>
-      <p class="result-message">Your script has been reviewed and approved. You may now proceed to create your content.</p>
-
-      <div class="result-details">
-        <div class="row">
-          <span class="label">Editor</span>
-          <span class="value" id="approvedEditor">-</span>
-        </div>
-        <div class="row">
-          <span class="label">Brand</span>
-          <span class="value" id="approvedBrand">-</span>
-        </div>
-        <div class="row">
-          <span class="label">Tool</span>
-          <span class="value" id="approvedTool">-</span>
-        </div>
-        <div class="row">
-          <span class="label">Status</span>
-          <span class="value" style="color: #00ff88;">✓ On-Brand Content</span>
-        </div>
+      <div class="info-row">
+        <span class="label">SCRIPT THEY TRIED TO GENERATE:</span>
       </div>
+      <div class="script-box">${escapeHtml(prompt)}</div>
 
-      <div class="tool-instructions" id="toolInstructions">
-        <h4>Next Steps:</h4>
-        <ol id="instructionsList">
-          <li>Copy your approved script</li>
-          <li>Go to the selected tool</li>
-          <li>Create your content</li>
-        </ol>
-      </div>
-
-      <button class="btn btn-secondary" onclick="resetForm()">Submit Another Script</button>
-    </div>
-
-    <!-- Flagged Result Screen -->
-    <div class="card result-screen flagged" id="flaggedScreen">
-      <div class="result-icon">🚨</div>
-      <div class="result-title">Script Flagged</div>
-      <p class="result-message">This script appears to be off-brand content. An admin has been notified and will review this submission.</p>
-
-      <div class="result-details">
-        <div class="row">
-          <span class="label">Editor</span>
-          <span class="value" id="flaggedEditor">-</span>
-        </div>
-        <div class="row">
-          <span class="label">Assigned Brand</span>
-          <span class="value" id="flaggedBrand">-</span>
-        </div>
-        <div class="row">
-          <span class="label">Detected Content</span>
-          <span class="value" id="flaggedDetected" style="color: #ff4444;">-</span>
-        </div>
-        <div class="row">
-          <span class="label">Status</span>
-          <span class="value" style="color: #ff4444;">✗ Off-Brand - Flagged for Review</span>
-        </div>
-      </div>
-
-      <p style="color: #888; font-size: 14px; margin-bottom: 24px;">
-        If you believe this is a mistake, please contact your supervisor.
+      <p style="margin-top: 20px; color: #666;">
+        This editor may be using company AI tools for unauthorized work.
+        Please review and take appropriate action.
       </p>
-
-      <button class="btn btn-secondary" onclick="resetForm()">Submit Another Script</button>
     </div>
-
-    <!-- Error Screen -->
-    <div class="card result-screen" id="errorScreen">
-      <div class="result-icon">❌</div>
-      <div class="result-title">Submission Failed</div>
-      <p class="result-message" id="errorMessage">An error occurred. Please try again.</p>
-      <button class="btn btn-secondary" onclick="resetForm()">Try Again</button>
-    </div>
-
     <div class="footer">
-      <p>W16 Media Script Portal | <a href="/admin.html">Admin Dashboard</a></p>
+      Editor Monitor System | W16 Media
     </div>
   </div>
-
-  <script>
-    const API_BASE = '';
-    let currentEditor = null;
-    let currentBrand = null;
-
-    const apiKeyInput = document.getElementById('apiKey');
-    const toolSelect = document.getElementById('tool');
-    const promptInput = document.getElementById('prompt');
-    const submitBtn = document.getElementById('submitBtn');
-    const statusDot = document.getElementById('statusDot');
-    const statusText = document.getElementById('statusText');
-    const brandBadge = document.getElementById('brandBadge');
-    const formCard = document.getElementById('formCard');
-
-    // Step indicators
-    const step1 = document.getElementById('step1');
-    const step2 = document.getElementById('step2');
-    const step3 = document.getElementById('step3');
-
-    // API Key validation
-    apiKeyInput.addEventListener('input', () => {
-      const key = apiKeyInput.value.trim();
-
-      if (key.length > 20) {
-        // Parse key to extract info
-        const parts = key.split('_');
-        let brand = '';
-        let name = '';
-
-        if (parts[0] === 'ap' || parts[0] === 'test' && key.includes('aurapets')) {
-          brand = 'Aurapets';
-        } else if (parts[0] === 'le' || parts[0] === 'test' && key.includes('lumineye')) {
-          brand = 'LuminEye';
-        } else if (parts[0] === 'narjes') {
-          brand = key.includes('aurapets') ? 'Aurapets' : 'LuminEye';
-          name = 'Narjes';
-        }
-
-        if (parts.length >= 2 && !name) {
-          name = parts[1].charAt(0).toUpperCase() + parts[1].slice(1);
-        }
-
-        currentEditor = name || 'Editor';
-        currentBrand = brand || 'Unknown';
-
-        statusDot.classList.add('connected');
-        statusText.textContent = `Connected as ${currentEditor}`;
-        statusText.classList.add('connected');
-        brandBadge.textContent = currentBrand;
-        brandBadge.classList.remove('hidden');
-
-        // Enable next step
-        toolSelect.disabled = false;
-        step1.classList.add('completed');
-        step2.classList.add('active');
-      } else {
-        statusDot.classList.remove('connected');
-        statusText.textContent = 'Enter your API key to continue';
-        statusText.classList.remove('connected');
-        brandBadge.classList.add('hidden');
-        toolSelect.disabled = true;
-        promptInput.disabled = true;
-        step1.classList.remove('completed');
-        step2.classList.remove('active');
-        step3.classList.remove('active');
-      }
-      checkFormValidity();
-    });
-
-    // Tool selection
-    toolSelect.addEventListener('change', () => {
-      if (toolSelect.value) {
-        promptInput.disabled = false;
-        step2.classList.add('completed');
-        step3.classList.add('active');
-      } else {
-        promptInput.disabled = true;
-        step2.classList.remove('completed');
-        step3.classList.remove('active');
-      }
-      checkFormValidity();
-    });
-
-    promptInput.addEventListener('input', checkFormValidity);
-
-    function checkFormValidity() {
-      const isValid = apiKeyInput.value.trim().length > 20 &&
-                      toolSelect.value &&
-                      promptInput.value.trim().length > 10;
-      submitBtn.disabled = !isValid;
-    }
-
-    // Form submission
-    document.getElementById('scriptForm').addEventListener('submit', async (e) => {
-      e.preventDefault();
-
-      const apiKey = apiKeyInput.value.trim();
-      const tool = toolSelect.value;
-      const prompt = promptInput.value.trim();
-
-      submitBtn.disabled = true;
-      submitBtn.textContent = 'Submitting...';
-
-      try {
-        const response = await fetch(`${API_BASE}/api/generate`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-API-Key': apiKey
-          },
-          body: JSON.stringify({ tool, prompt })
-        });
-
-        const data = await response.json();
-
-        if (!response.ok) {
-          showError(data.error || 'Request failed. Please check your API key.');
-          return;
-        }
-
-        if (data.flagged) {
-          showFlagged(data);
-        } else {
-          showApproved(data);
-        }
-
-      } catch (error) {
-        showError('Network error. Please check your connection and try again.');
-      } finally {
-        submitBtn.disabled = false;
-        submitBtn.textContent = 'Submit for Approval';
-      }
-    });
-
-    function showApproved(data) {
-      formCard.classList.add('hidden');
-      document.getElementById('approvedEditor').textContent = data.editor || currentEditor;
-      document.getElementById('approvedBrand').textContent = data.brand || currentBrand;
-      document.getElementById('approvedTool').textContent = getToolName(data.tool);
-
-      // Set tool-specific instructions
-      const instructions = getToolInstructions(data.tool);
-      document.getElementById('instructionsList').innerHTML = instructions.map(i => `<li>${i}</li>`).join('');
-
-      document.getElementById('approvedScreen').classList.add('show');
-    }
-
-    function showFlagged(data) {
-      formCard.classList.add('hidden');
-      document.getElementById('flaggedEditor').textContent = data.editor || currentEditor;
-      document.getElementById('flaggedBrand').textContent = data.brand || currentBrand;
-      document.getElementById('flaggedDetected').textContent = data.analysis?.detectedTopic || 'Off-brand content';
-      document.getElementById('flaggedScreen').classList.add('show');
-    }
-
-    function showError(message) {
-      formCard.classList.add('hidden');
-      document.getElementById('errorMessage').textContent = message;
-      document.getElementById('errorScreen').classList.add('show');
-    }
-
-    function resetForm() {
-      document.getElementById('approvedScreen').classList.remove('show');
-      document.getElementById('flaggedScreen').classList.remove('show');
-      document.getElementById('errorScreen').classList.remove('show');
-      formCard.classList.remove('hidden');
-
-      // Reset form but keep API key
-      toolSelect.value = '';
-      promptInput.value = '';
-      promptInput.disabled = true;
-      step2.classList.remove('completed');
-      step3.classList.remove('active');
-      checkFormValidity();
-    }
-
-    function getToolName(tool) {
-      const names = {
-        'veo3': '🎬 Veo 3',
-        'makeugc': '👤 MakeUGC',
-        'elevenlabs': '🎙️ ElevenLabs',
-        'higgsfield': '✨ Higgsfield'
-      };
-      return names[tool] || tool;
-    }
-
-    function getToolInstructions(tool) {
-      const instructions = {
-        'veo3': [
-          'Go to labs.google/fx/tools/flow',
-          'Log in',
-          'Paste your approved script',
-          'Generate your video'
-        ],
-        'makeugc': [
-          'Go to makeugc.ai',
-          'Log in',
-          'Paste your approved script',
-          'Create your UGC content'
-        ],
-        'elevenlabs': [
-          'Go to elevenlabs.io',
-          'Log in',
-          'Paste your approved script',
-          'Generate your voice audio'
-        ],
-        'higgsfield': [
-          'Go to Higgsfield platform',
-          'Log in',
-          'Paste your approved script',
-          'Generate your AI video'
-        ]
-      };
-      return instructions[tool] || ['Go to the selected tool', 'Paste your approved script', 'Create your content'];
-    }
-  </script>
 </body>
 </html>
+  `;
+
+  const emailText = `
+🚨 OFF-BRAND CONTENT DETECTED
+
+Editor: ${editor.name}
+Assigned Brand: ${brand.name} (${brand.website})
+Tool Used: ${tool}
+Time: ${new Date(timestamp).toLocaleString()}
+
+⚠️ Content Analysis:
+Detected Topic: ${detectedTopic}
+Expected: ${brand.description}
+Reason: ${reason}
+
+SCRIPT THEY TRIED TO GENERATE:
+────────────────────────────────
+${prompt}
+────────────────────────────────
+
+This editor may be using company AI tools for unauthorized work.
+Please review and take appropriate action.
+
+---
+Editor Monitor System | W16 Media
+  `;
+
+  try {
+    // Use Resend's default domain (works without domain verification)
+    const response = await resend.emails.send({
+      from: 'Editor Monitor <onboarding@resend.dev>',
+      to: adminEmail,
+      subject: `OFF-BRAND ALERT: ${editor.name} (${tool})`,
+      html: emailHtml,
+      text: emailText
+    });
+
+    console.log('Alert email sent:', response);
+    return { success: true, id: response.id };
+  } catch (error) {
+    console.error('Failed to send alert email:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+function escapeHtml(text) {
+  const map = {
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#039;'
+  };
+  return text.replace(/[&<>"']/g, m => map[m]);
+}
+
+module.exports = { sendAlertEmail };
